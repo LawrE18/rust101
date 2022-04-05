@@ -4,41 +4,62 @@
 // As our first piece of Rust code, we want to write a function that computes the
 // minimum of a list.
 
-
-// An `enum` for "a number or nothing" could look as follows:
-enum NumberOrNothing {
+enum NothingOrNumber {
     Number(i32),
     Nothing
 }
 
-// Observe how in Rust, the return type comes *after* the arguments.
-fn vec_min(vec: Vec<i32>) -> NumberOrNothing {
-    let mut min = NumberOrNothing::Nothing;
+/*
+    Давайте начнем с размышлений о типе нашей функции. Rust заставляет нас
+    указывать типы всех аргументов и тип возвращаемого значения еще до того,
+    как мы начнем писать тело. В случае с нашей минимальной функцией мы можем
+    сказать, что она возвращает число. Но тогда у нас возникнут проблемы:
+     - каков минимум пустого списка?
+    Тип функции говорит, что мы должны что-то вернуть. Мы могли бы просто выбрать
+    0, но это было бы произвольно. Нам нужен тип, который является «числом или ничем».
+    Такой тип (с несколькими исключительными параметрами) называется
+     - «алгебраическим типом данных», и Rust позволяет нам определять такие типы с
+     помощью ключевого слова enum.
+     Исходя из C(++), вы можете думать о таком типе как об объединении вместе с полем,
+     в котором хранится вариант объединения, который используется в данный момент.
+*/
 
-    // Now we want to *iterate* over the list. Rust has some nice syntax for iterators:
+/*
+    Нам не нужно писать тип рядом с min, Rust может понять это автоматически
+    (немного похоже на auto в C++11). Также обратите внимание на mut:
+    в Rust переменные неизменяемы по умолчанию, и вам нужно сообщить Rust,
+    если вы хотите изменить переменную позже. (keyword mut)
+
+    Pattern matching:
+    Обратите внимание, что Rust следит за тем, чтобы вы не забыли обработать ни один
+    регистр в своем матче. Мы говорим, что сопоставление с образцом должно быть исчерпывающим.
+*/
+// Observe how in Rust, the return type comes *after* the arguments.
+
+/*
+    Действительно, мы можем: Следующая строка сообщает Rust, что конструкторы
+    NumberOrNothing должны быть помещены в локальное пространство имен. Попробуйте
+    переместить это над функцией и удалить все вхождения NumberOrNothing::
+*/
+
+use self::NothingOrNumber::{Nothing, Number};
+
+fn vec_min(vec: Vec<i32>) -> NothingOrNumber {
+    let mut min = Nothing;
     for el in vec {
-        // So `el` is an element of the list. We need to update `min` accordingly, but how do we
-        // get the current number in there? This is what pattern matching can do:
         match min {
-            // In this case (*arm*) of the `match`, `min` is currently nothing, so let's just make
-            // it the number `el`.
-            NumberOrNothing::Nothing => {
-                min  = NumberOrNothing::Number(el);
+            Nothing => {
+                min = Number(el);
             },
-            // In this arm, `min` is currently the number `n`, so let's compute the new minimum and
-            // store it.
-            NumberOrNothing::Number(n) => {
-                let new_min = min_i32(n, el);
-                min = NumberOrNothing::Number(new_min);
+            Number(n) => {
+                min = Number(min_i32(el, n));
             }
         }
     }
-    // Finally, we return the result of the computation.
     return min;
 }
 
-// Now that we reduced the problem to computing the minimum of two integers, let's do that.
-fn min_i32(a: i32, b: i32) -> i32 {
+fn min_i32(a: i32, b:i32) -> i32 {
     if a < b {
         a
     } else {
@@ -46,27 +67,18 @@ fn min_i32(a: i32, b: i32) -> i32 {
     }
 }
 
-// Phew. We wrote our first Rust function! But all this `NumberOrNothing::` is getting kind of
-// ugly. Can't we do that nicer?
-
-// Indeed, we can: The following line tells Rust to take
-// the constructors of `NumberOrNothing` into the local namespace.
-// Try moving that above the function, and removing all the occurrences of `NumberOrNothing::`.
-use self::NumberOrNothing::{Number,Nothing};
-
-// To call this function, we now just need a list. Of course, ultimately we want to ask the user for
-// a list of numbers, but for now, let's just hard-code something.
+/*
+    vec! это макрос (обозначенный !), который создает константу Vec<_> с заданными элементами.
+*/
 
 fn read_vec() -> Vec<i32> {
-    vec![5,4,1,3,2]    
+    vec![5,4,-1,3,2]
 }
 
-// Of course, we would also like to actually see the result of the computation, so we need to print the result.
-
-fn print_number_or_nothing(n: NumberOrNothing) {
+fn print_nothing_or_number(n: NothingOrNumber) {
     match n {
-        Nothing => println!("The number is Nothing"),
-        Number(n) => println!("The number is: {}", n),
+        Nothing => println!("Nothing"),
+        Number(n) => println!("Number={}", n),
     };
 }
 
@@ -74,7 +86,7 @@ fn print_number_or_nothing(n: NumberOrNothing) {
 pub fn main() {
     let vec = read_vec();
     let min = vec_min(vec);
-    print_number_or_nothing(min);
+    print_nothing_or_number(min);
 }
 
 // Finally, try `cargo run` on the console to run it.

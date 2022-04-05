@@ -3,19 +3,55 @@
 
 
 // ## Generic datatypes
+/*
+    Давайте еще раз рассмотрим тип NumberOrNothing. Разве не раздражает, что нам
+    пришлось жестко закодировать здесь тип i32? Что, если завтра нам понадобится
+    CharOrNothing, а позже FloatOrNothing? Конечно, мы не хотим переписывать тип и
+    все присущие ему методы.
 
-pub enum SomethingOrNothing<T>  {
-    Something(T),
+    Решение этой проблемы называется дженериками или полиморфизмом. Вы можете знать что-то
+    подобное из C++ (где это называется шаблонами). Итак, здесь мы определяем общий
+    тип SomethingOrNothing.
+
+    Это определяет целое семейство типов: теперь мы можем написать
+    SomethingOrNothing<i32>, чтобы получить обратно наш NumberOrNothing.
+
+    Однако мы также можем написать SomethingOrNothing<bool> или даже
+    SomethingOrNothing<SomethingOrNothing<i32>>. На самом деле тип SomethingOrNothing
+    настолько полезен, что уже присутствует в стандартной библиотеке:
+    он называется опциональным типом и пишется как Option<T>.
+    Посмотрите его документацию!
+*/
+pub enum SomethingOrNothing<T> {
     Nothing,
+    Something(T)
 }
-// Instead of writing out all the variants, we can also just import them all at once.
+// вместо того, чтобы выписывать все варианты, мы также можем просто импортировать их все сразу.
 pub use self::SomethingOrNothing::*;
+// Это определяет целое семейство типов: теперь мы можем написать SomethingOrNothing<i32>,
+// чтобы получить обратно наш NumberOrNothing.
 type NumberOrNothing = SomethingOrNothing<i32>;
 type FloatOrNothing = SomethingOrNothing<f32>;
 
-// ## Generic `impl`, Static functions
-// Inside an `impl`, `Self` refers to the type we are implementing things for. Here, it is
-// an alias for `SomethingOrNothing<T>`.
+/*
+    Типы настолько похожи, что мы можем предоставить общую функцию для создания
+    SomethingOrNothing<T> из Option<T> и наоборот.
+    Обратите внимание на синтаксис для предоставления универсальных реализаций
+    универсальным типам: подумайте о первом <T> как об объявлении переменной типа
+    («Я делаю что-то для всех типов T»), а о втором <T> — как об использовании этой
+    переменной («Вещь Я делаю, реализую SomethingOrNothing<T>»).
+*/
+/*
+    Внутри реализации Self относится к типу, для которого мы что-то реализуем.
+    Здесь это псевдоним для SomethingOrNothing<T>. Помните, что self — это this в Rust,
+    и он неявно имеет тип Self.
+
+    Обратите внимание, что new не имеет параметра self.
+    Это соответствует статическому методу в Java или C++.
+    На самом деле новым является соглашение Rust для определения конструкторов:
+    в них нет ничего особенного, просто статические функции, возвращающие Self.
+*/
+
 impl<T> SomethingOrNothing<T> {
     fn new(o: Option<T>) -> Self {
         match o {None => Nothing, Some(t) => Something(t)}
@@ -25,63 +61,121 @@ impl<T> SomethingOrNothing<T> {
         match self {Nothing => None, Something(t) => Some(t)}
     }
 }
-// You can call static functions, and in particular constructors, as demonstrated in `call_constructor`.
+
+/*
+    Вы можете вызывать статические функции и, в частности, конструкторы,
+    как показано в call_constructor.
+*/
 fn call_constructor(x: i32) -> SomethingOrNothing<i32> {
     SomethingOrNothing::new(Some(x))
 }
 
 // ## Traits
+/*
+    Теперь, когда у нас есть общий SomethingOrNothing, было бы неплохо также иметь
+    общий vec_min? Конечно, мы не можем взять минимум вектора любого типа. Это должен быть
+    тип, поддерживающий операцию min. Rust называет такие свойства, которые мы можем
+    потребовать от типов, trait.
+*/
 
+/*
+    Итак, в качестве первого шага к универсальному vec_min мы определяем trait Minimum.
+    На данный момент просто игнорируйте Copy, мы вернемся к этому моменту позже. Трейт во
+    многом похож на интерфейсы в Java: вы определяете набор функций, которые хотите реализовать,
+    а также типы их аргументов и возвращаемых значений.
+    Функция min принимает два аргумента одного типа, но я сделал первый аргумент специальным
+    аргументом self. В качестве альтернативы я мог бы сделать min статической функцией следующим
+    образом: fn min(a: Self, b: Self) -> Self. Однако в Rust обычно предпочитают методы
+    статическим функциям везде, где это возможно.
+*/
 pub trait Minimum : Copy {
     fn min(self, b: Self) -> Self;
 }
 
+/*
+    Затем мы пишем vec_min как универсальную функцию над типом T, которая, как мы требуем,
+    удовлетворяет trait Minimum. Это требование называется trait bound.
+    Единственное отличие от версии из предыдущей части в том, что мы вызываем e.min(n) вместо
+    min_i32(n, e). Rust автоматически определяет, что e имеет тип T, который реализует трейт
+    Minimum, и, следовательно, мы можем вызвать эту функцию.
+
+    Существует принципиальное отличие от шаблонов в C++: мы фактически должны объявить,
+    каким traits должен удовлетворять тип. Если бы мы убрали Minimum, Rust пожаловался
+    бы, что мы не можем вызвать min. Просто попробуйте!
+    Это сильно отличается от C++, где компилятор проверяет такие детали только тогда,
+    когда функция действительно используется.
+*/
+
 pub fn vec_min<T: Minimum>(v: Vec<T>) -> SomethingOrNothing<T> {
     let mut min = Nothing;
+
     for e in v {
         min = Something(match min {
             Nothing => e,
-            // Here, we can now call the `min` function of the trait.
-            Something(n) => {
-                e.min(n)
-            }
+            Something(n) => e.min(n), // !!!!!!n.min(e) не работает??
         });
     }
+
     min
 }
 
+/*
+    Прежде чем продолжить, подумайте о гибкости подхода Rust к абстракции: мы только что
+    определили наш собственный пользовательский trait (интерфейс), а затем реализовали этот trait
+    для существующего типа. С иерархическим подходом, например, C++ или Java, это невозможно:
+    мы не можем сделать так, чтобы существующий тип также наследовал наш абстрактный базовый
+    класс постфактум.
+
+    Если вас беспокоит производительность, обратите внимание, что Rust выполняет мономорфизацию у
+    ниверсальных функций: когда вы вызываете vec_min с T равным i32, Rust, по существу, создает
+    копию функции для этого конкретного типа, заполняя все пробелы. В этом случае вызов T::min
+    станет вызовом нашей реализации статически. Нет динамической диспетчеризации, как это было бы
+    для методов интерфейса Java или виртуальных методов C++. Это поведение похоже на шаблоны C++.
+    Оптимизатор (Rust использует LLVM) получает всю необходимую информацию, например, встроенные
+    вызовы функций.
+*/
+
 // ## Trait implementations
-// To make `vec_min` usable with a `Vec<i32>`, we implement the `Minimum` trait for `i32`.
+
+// Чтобы сделать vec_min пригодным для использования с Vec<i32>, реализуем trait Minimum для i32.
 impl Minimum for i32 {
     fn min(self, b: Self) -> Self {
-        if self < b { self } else { b }
+        if self <= b { self } else { b }
+    }
+}
+
+/*
+    Мы снова предоставляем функцию печати. Это также показывает, что у нас может быть несколько
+    блоков реализации для одного и того же типа (помните, что NumberOrNothing — это просто
+    псевдоним типа для SomethingOrNothing<i32>), и мы можем предоставить некоторые методы
+    только для определенных экземпляров универсального типа.
+*/
+impl NumberOrNothing {
+    pub fn print(self) {
+        match self {
+            Nothing => println!("Nothing"),
+            Something(n) => println!("Number={}", n),
+        }
+    }
+}
+
+// **Exercise 02.1**: Change your program such that it computes the minimum of a `Vec<f32>` (where
+// `f32` is the type // of 32-bit floating-point numbers). You should not change `vec_min` in any
+// way, obviously!
+impl FloatOrNothing {
+    pub fn print(self) {
+        match self {
+            Nothing => println!("Float Nothing"),
+            Something(f) => println!("Float number={}", f),
+        }
     }
 }
 
 impl Minimum for f32 {
     fn min(self, b: Self) -> Self {
-        if self < b { self } else { b }
+        if self <= b { self } else {b}
     }
 }
-
-// We again provide a `print` function.
-impl NumberOrNothing {
-    pub fn print(self) {
-        match self {
-            Nothing => println!("The number is: <nothing>"),
-            Something(n) => println!("The number is: {}", n),
-        };
-    }
-}
-
-/*impl FloatOrNothing {
-    pub fn print(self) {
-        match self {
-            Nothing => println!("The float number is nothing"),
-            Something(f) => println!("The float number is: {}", f),
-        };
-    }
-}*/
 
 // Now we are ready to run our new code. Remember to change `main.rs` appropriately.
 fn read_vec() -> Vec<i32> {
@@ -90,15 +184,9 @@ fn read_vec() -> Vec<i32> {
 
 pub fn main() {
     let vec = read_vec();
-    let fvec = vec![1.1, 1.2, 1.3, 0.1];
+    let fvec: Vec<f32> = vec![1.1, 1.2, 1.3, 0.1];
     let min = vec_min(vec);
     min.print();
     let fmin = vec_min(fvec);
-    //fmin.print();
+    fmin.print();
 }
-
-
-// **Exercise 02.1**: Change your program such that it computes the minimum of a `Vec<f32>` (where
-// `f32` is the type // of 32-bit floating-point numbers). You should not change `vec_min` in any
-// way, obviously!
-
