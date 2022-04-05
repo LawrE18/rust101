@@ -9,6 +9,11 @@ use std::iter::zip;
 use std::ops::Deref;
 use hex::ToHex;
 
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::path::Path;
+
 fn strxor(l1: &str, l2: &str) -> Vec<u8> {
     let v: Vec<u8>;
     let mut a = hex::decode(l1.clone()).unwrap();
@@ -30,24 +35,11 @@ fn strxor(l1: &str, l2: &str) -> Vec<u8> {
 }
 
 fn print(v: Vec<u8>) {
-/*    let mut s: String = "".to_string();
-    let mut p: String = "\\\n,.\t0!".to_string();
+    /*let mut ans: String = "".to_string();
     for c in v {
-        let flag = if c != 10 { true } else { false };
-        if flag & c.is_ascii_alphabetic() {
-            print!("[{}]", c as char);
-            //s.push(c as char);
-        } else if p.find(c as char) != None {
-            print!("[{:02X?}]", c as char);
-            //s.push_str("\\n");
-        } else {
-            print!(".")
-            //s.push('{');
-            //s.push_str(c.to_string().as_str());
-            //s.push('}');
-        }
-    }
-    println!("{}", s);*/
+        print!("{:?}", c);
+    }*/
+    print!("{}", hex::encode(v));
 }
 
 fn variants(v: Vec<Vec<u8>>) {
@@ -111,4 +103,10 @@ pub fn main() {
         variants(v);
         println!();
     }
+    let file = File::open(Path::new("in.txt")).unwrap();
+    let reader = BufReader::new(&file);
+    let m: String = "THE CIPHERTEXT PRODUCED BY A WEAK ENCRYPTION ALGORITHM LOOKS AS GOOD AS CIPHERTEXT ".to_string().encode_hex();
+    let vl: Vec<String> = reader.lines().collect::<Result<_, _>>().unwrap();
+    let key = hex::encode(strxor(&m, &vl[2]));
+    print(strxor(&key, &vl[10]));
 }
